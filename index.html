@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Regalo — Mural Retro</title>
+<style>
+  :root{ --bg:#0b0010; --green:#00ff66; --win-blue:#0b3b8c; --win-gray:#cfcfcf; }
+  html,body{height:100%;margin:0;background:var(--bg);font-family:"Courier New",monospace;overflow:hidden;color:#fff}
+  /* VIRUS SCREEN */
+  #virus-screen{
+    position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;
+    background:#000000; color:var(--green); z-index:2000; text-align:center; font-size:1.25rem;
+    animation:blink 0.12s infinite alternate;
+  }
+  @keyframes blink{0%{opacity:1}50%{opacity:0.85}100%{opacity:1}}
+  #virus-lines { white-space:pre-wrap; line-height:1.4; max-width:90%; }
+
+  /* dots animation using pseudo element: defined via JS by toggling class,
+     but also provide fallback */
+  .dots::after{ content: ''; display:inline-block; width:1ch; }
+
+  /* BACKGROUND (hearts + lilies) */
+  #background {
+    position:fixed;inset:0;background:linear-gradient(180deg,#080008 0%, #2b002b 100%);z-index:0;overflow:hidden;
+  }
+  .heart{ position:absolute; font-size:20px; opacity:0.9; animation:float 6s linear forwards; }
+  @keyframes float{ 0%{transform:translateY(100vh) scale(0.6);opacity:0} 10%{opacity:1} 100%{transform:translateY(-20vh) scale(1.1);opacity:0} }
+
+  .lirio{ position:absolute; bottom:-40px; width:48px; transform-origin:bottom center; animation:grow 3.5s ease-out forwards; }
+  @keyframes grow{ from{transform:scale(0) translateY(20px)} to{transform:scale(1) translateY(0)} }
+
+  /* POPUPS estilo Windows 98 */
+  #popup-container{position:fixed;inset:0;pointer-events:none;z-index:1000}
+  .popup{
+    position:absolute; width:240px; background:var(--win-gray); border:3px solid #000;
+    box-shadow:6px 6px 0 rgba(0,0,0,0.8); border-radius:3px; pointer-events:auto; overflow:hidden;
+    font-family: "MS Sans Serif", "Arial", sans-serif; color:#111;
+    transform-origin:center; animation:popupIn .22s ease-out;
+  }
+  @keyframes popupIn{ from{opacity:0; transform:scale(0.8) rotate(-4deg)} to{opacity:1; transform:scale(1) rotate(0)} }
+  .titlebar{ background:var(--win-blue); color:#fff; padding:4px 6px; font-weight:700; font-size:13px; display:flex; justify-content:space-between; align-items:center;}
+  .closeBtn{ background:#ff5b5b; color:#fff; font-weight:700; border-radius:3px; padding:2px 6px; cursor:pointer; font-size:12px; }
+  .body{ background:#fff; padding:8px; font-size:14px; line-height:1.2; text-align:center; }
+
+  /* responsive */
+  @media (max-width:600px){ .popup{ width:84vw } .lirio{ width:36px } }
+
+  /* FINAL overlay */
+  #final-overlay{
+    position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:3000;
+    background:linear-gradient(180deg, rgba(0,0,0,0.85), rgba(10,5,20,0.95)); color:#fff; text-align:center; padding:20px;
+  }
+  #final-card{ max-width:900px; padding:28px; border-radius:12px; background:rgba(255,255,255,0.04); }
+  #final-card h1{ font-family:Georgia, serif; margin:0 0 12px; font-size:26px; }
+  #final-card p{ margin:10px 0; font-size:18px; }
+
+  /* small helper */
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+
+  <!-- VIRUS SCREEN -->
+  <div id="virus-screen" role="dialog" aria-live="polite">
+    <div id="virus-lines">
+      ⚠️ Esto es un virus...\n
+      Escaneando sistema<span id="dots" class="dots"></span>
+    </div>
+    <div style="margin-top:12px; font-size:0.9rem; color:#aaa">(Toca o presiona una tecla para acelerar)</div>
+  </div>
+
+  <!-- BACKGROUND -->
+  <div id="background"></div>
+
+  <!-- POPUP AREA -->
+  <div id="popup-container"></div>
+
+  <!-- FINAL -->
+  <div id="final-overlay" role="dialog" aria-modal="true">
+    <div id="final-card">
+      <h1>✨ “El Señor irá delante de ti; Él estará contigo.”</h1>
+      <p style="font-style:italic">“No te dejará ni te desamparará. No temas ni te desalientes.”</p>
+      <p style="margin-top:18px"><strong>— Deuteronomio 31:8</strong></p>
+      <p style="margin-top:22px; font-weight:700">Con amor,<br>Jhair, Nicole y Daniela 💚</p>
+    </div>
+  </div>
+
+<script>
+/* ==========================
+   CONFIG Y RECURSOS
+   ========================== */
+
+/* IMÁGENES (links ya convertidos) */
+const imagenes = [
+"https://drive.google.com/uc?export=view&id=1smTNZRz6zAKDSM95KVaqeeHF8ME7CQtU",
+"https://drive.google.com/uc?export=view&id=1jqs2L1f03Z0M69COz2PlIq0HwsU8jmMR",
+"https://drive.google.com/uc?export=view&id=1_GK5wiKMydzTEz5k_i65MxSSmGKYG9Xx",
+"https://drive.google.com/uc?export=view&id=1u6MRlIzefEaFwsXdyhJ8jPchEDDb8OrJ",
+"https://drive.google.com/uc?export=view&id=1rn6jV9LhIOFcGerYXH0ILF0qaEOxZFs4",
+"https://drive.google.com/uc?export=view&id=1OFMMmf3lMerX2CZfW9UCb1XOI8WTciLs",
+"https://drive.google.com/uc?export=view&id=1Q5CH1uaFLcfHyLxXKR4AQgixHM5rYR8Y",
+"https://drive.google.com/uc?export=view&id=1ysUp7q5m9ickDhH4EwOH-RM3VfH6EYtN",
+"https://drive.google.com/uc?export=view&id=1fg2Zt8dUAPjHnvAJhhCpBxmgVxhpVDZL",
+"https://drive.google.com/uc?export=view&id=1M7znVteaJor2MEIvY7uFqxLBTnZslfNy",
+"https://drive.google.com/uc?export=view&id=1sYp4JzcQUkza2ywbOPWT_h2mckaMZcxj",
+"https://drive.google.com/uc?export=view&id=1PESgVq63nYX2NaK9dAng203PUJBjyUl1",
+"https://drive.google.com/uc?export=view&id=1NkgI-pF6cvVjbxx8UX5C1V8UixDW4h40",
+"https://drive.google.com/uc?export=view&id=1IrfHnQcb9DvJ5Ufk0m1h04_d1J0VU9CE",
+"https://drive.google.com/uc?export=view&id=1KyOFaXoopOLmRuLC_Nvm2javdeUbDZjf",
+"https://drive.google.com/uc?export=view&id=16MCA3zJlQCJIkrDiYknlbWIhYaeovsEp",
+"https://drive.google.com/uc?export=view&id=1Z_qgoiVgJBTvHfUb9F3LxCLEn3gifu0g",
+"https://drive.google.com/uc?export=view&id=14Yl9xV8u20ZhO79MS5d2RsW1dV8Opyg5",
+"https://drive.google.com/uc?export=view&id=1Xteiwx4ajuZdtXzys6Wajc7SxewsV1sh",
+"https://drive.google.com/uc?export=view&id=1Oi9THjeIaLuM06AM_hJzLnqHEBQjAA0s",
+"https://drive.google.com/uc?export=view&id=1AwtMYssYD6F7q4KSTBVyxIoN0nt-ZxU7",
+"https://drive.google.com/uc?export=view&id=1XirqP-ZFRfAKBLEBE_4jQJKHb3oWDTp0",
+"https://drive.google.com/uc?export=view&id=1jFQWdfM5BMNmXJdVLyvQUAf976zhPkIM",
+"https://drive.google.com/uc?export=view&id=1THmKu0pCzmIPbNMPYc2iEUBWCKJK7-4U",
+"https://drive.google.com/uc?export=view&id=1P_mI5gjsZL690aEamE88QlLFzvthZO9u",
+"https://drive.google.com/uc?export=view&id=1hFTJd2VyJdNVoa1RmFefaa8uanS8Hth4",
+"https://drive.google.com/uc?export=view&id=1PIV6g3GkI_C_fd_IE2E0-H-_OJaJq2PD",
+"https://drive.google.com/uc?export=view&id=1ExINutwxbMHE2Sf92mTWiSbTKaLU7C7J",
+"https://drive.google.com/uc?export=view&id=1QCaPeoDw2uGLjSG7-TskPNElaOrMBKG-",
+"https://drive.google.com/uc?export=view&id=1uiMYGhj-cLgBETe-YpXxC1VhLv_WdVZ7",
+"https://drive.google.com/uc?export=view&id=1CqSy5NazxSMUySLk9WQkComxPcSdpHHq",
+"https://drive.google.com/uc?export=view&id=1SdKQqbQtkEaXNkAf-v4aa5jaDAGtTItG",
+"https://drive.google.com/uc?export=view&id=1uR8WOLFwK_FcN7gB6Q1twOxMC3hvGTV6",
+"https://drive.google.com/uc?export=view&id=1-fp5oa-vn3ep7BP5Dds6oWmrHLdX_frr",
+"https://drive.google.com/uc?export=view&id=1YHmLL-kkQgrQSKmTRQMlKSoLOG7n7NZ8",
+"https://drive.google.com/uc?export=view&id=1BCHzqEVdE0S5lpn7jBVAYm_JLlT8NXSm",
+"https://drive.google.com/uc?export=view&id=1x6n5EjAi3JucbBD402zN93RxAaR--KSu",
+"https://drive.google.com/uc?export=view&id=1gQ0neGTDmyQA7WJYyz6OtBHnf08ASR-I",
+"https://drive.google.com/uc?export=view&id=1CLpu4qL_ZdaUodRo1J6waUDHoCJM2zTu",
+"https://drive.google.com/uc?export=view&id=1Ez8LTGeA6vAVP6J46Pg9tvponNLxNpgA",
+"https://drive.google.com/uc?export=view&id=1Yv0-wFGcNCK09mSKNwh51qEo3HdoBEin",
+"https://drive.google.com/uc?export=view&id=1qh0WG6sXDBoge2o_iNxL644_46KdVbDl",
+"https://drive.google.com/uc?export=view&id=14GawBCXRjLijlcXbS_hMf2XLFBHHPSOJ",
+"https://drive.google.com/uc?export=view&id=1F5-NlWBoq-0Eu7Vub3R-IDEMQ6zn9eFb",
+"https://drive.google.com/uc?export=view&id=1G6yOEuPdZjHGA9tPJEunA0GBpvZz3bb-",
+"https://drive.google.com/uc?export=view&id=1P5N7vFxYviEThDJ30kdO7LMmYg-ZmjmP",
+"https://drive.google.com/uc?export=view&id=1NjUQ5HLYeiyg7y7wuKcjk4BmVpPuUig5",
+"https://drive.google.com/uc?export=view&id=1ZW6NFBCOXZrUvdbT2B6zNzwiLwlkG8Yo",
+"https://drive.google.com/uc?export=view&id=1DiWY4VH-t1F1wDm6OJofvzFSaFsofzsd",
+"https://drive.google.com/uc?export=view&id=1R7RFFbgacD6cfHil5od54nd7lnyWj96V",
+"https://drive.google.com/uc?export=view&id=1aG5DPXc9Qk1b2VkqSOBiVJGmAmGl6CO1",
+"https://drive.google.com/uc?export=view&id=1DewDxgO0OuVxiJ8ze1qZ-mDjU6hZ2DjQ"
+];
+
+/* VIDEOS: los 6 (los 3 primeros los dejamos ~2min cada uno; los 3 últimos respetan tiempos 1,2,1) */
+const videos = [
+  { src:"https://drive.google.com/uc?export=download&id=1EX7MKWWhVEc9Mmnhx6REEKuPNJoMJjAR", forcedDuration:120000 }, // 2 min
+  { src:"https://drive.google.com/uc?export=download&id=14cG767K8i2Jr0sdBJHyZ8yAa2y4-UR_3", forcedDuration:120000 }, // 2 min
+  { src:"https://drive.google.com/uc?export=download&id=1KmjlV399sDJbD3QFYvbxf7qWMKJecXtN", forcedDuration:120000 }, // 2 min
+  { src:"https://drive.google.com/uc?export=download&id=1uD3XoF60p9D0hHZiMigINtcbixSijKgf", forcedDuration:60000 },  // 1 min (mensaje)
+  { src:"https://drive.google.com/uc?export=download&id=1TtePgLqClYwk56eSxve-gvm0TJ8Y1ccv", forcedDuration:120000 }, // 2 min (mensaje)
+  { src:"https://drive.google.com/uc?export=download&id=1w4Zau_D6jmQ7Wb2EFrxQZAAzixtH3wRB", forcedDuration:60000 }   // 1 min (mensaje)
+];
+
+/* Mensajitos y pequeños textos que aparecerán en popups */
+const mensajes = [
+  "Gracias por ser mi hermana mayor no oficial 💛",
+  "Sapa Nicole (sí, me molesta pero te adoro) 🐸",
+  "Gracias por acompañarme a clases 🏫",
+  "Gracias por enamorar a mi profe de hacking 😂",
+  "Dormir contigo (esas 2 veces) fue épico 🛏️",
+  "Prometo casarme con tu hermano por la familia 😅",
+  "Voy a extrañarte un montón 😭",
+  "Eres la más intensa (y me encanta) 👑",
+  "Sapos, estrellas y un millón de recuerdos ✨",
+  "Te quiero como hermana mayor ❤️"
+];
+
+/* ==========================
+   UTILS Y CONTROL DEL VIRUS
+   ========================== */
+const virusScreen = document.getElementById('virus-screen');
+const dotsEl = document.getElementById('dots');
+let virusInterrupted = false;
+let popupZ = 1000;
+
+/* animar los puntitos (si el navegador no aplica pseudo-element) */
+let dotState = 0;
+setInterval(()=> {
+  if(!virusInterrupted){
+    dotState = (dotState+1)%4;
+    dotsEl.textContent = '.'.repeat(dotState);
+  }
+}, 550);
+
+/* permitir acelerar con click/tecla */
+document.addEventListener('keydown', accelerateVirus);
+document.addEventListener('click', accelerateVirus);
+function accelerateVirus(){ if(!virusInterrupted){ virusInterrupted=true; finishVirus(); } }
+
+/* terminar pantalla virus despues de 12s (o antes si se acelera) */
+setTimeout(()=> { if(!virusInterrupted) finishVirus(); }, 12000);
+
+function finishVirus(){
+  virusInterrupted = true;
+  // mostrar "jaja es broma" por 2s y continuar
+  const lines = document.getElementById('virus-lines');
+  lines.innerText = "💻 Jaja es broma 😈";
+  setTimeout(()=> {
+    virusScreen.style.display = 'none';
+    startExperience();
+  }, 2000);
+}
+
+/* ==========================
+   FONDO: corazones y lirios
+   ========================== */
+function startBackground(){
+  const bg = document.getElementById('background');
+
+  // corazones periódicos
+  const heartInterval = setInterval(()=>{
+    const h = document.createElement('div');
+    h.className = 'heart';
+    h.innerText = '❤';
+    h.style.left = (Math.random()*92)+'vw';
+    h.style.fontSize = (12 + Math.random()*26) + 'px';
+    const dur = 4 + Math.random()*4;
+    h.style.animationDuration = dur + 's';
+    bg.appendChild(h);
+    setTimeout(()=> h.remove(), (dur+0.6)*1000);
+  }, 350);
+
+  // lirios (nacen al inicio y algunos después)
+  for(let i=0;i<12;i++){
+    setTimeout(()=>{
+      const img = document.createElement('img');
+      img.className = 'lirio';
+      img.src = 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Iris_germanica_Louvre_03.JPG/80px-Iris_germanica_Louvre_03.JPG';
+      img.style.left = (4 + Math.random()*86) + 'vw';
+      img.style.animationDuration = (3.5 + Math.random()*1.6) + 's';
+      document.getElementById('background').appendChild(img);
+      // no los removemos: son el fondo
+    }, 300*i);
+  }
+}
+
+/* ==========================
+   POPUPS DE FOTOS (aparecen uno tras otro pero se quedan superpuestas)
+   ========================== */
+const popupContainer = document.getElementById('popup-container');
+
+function showAllPhotosStacked(){
+  // vamos mostrando fotos cada 350ms; se quedan (acumuladas), generando efecto sobrepuesto
+  let idx = 0;
+  const interval = setInterval(()=>{
+    if(idx >= imagenes.length){ clearInterval(interval); return; }
+    createImagePopup(imagenes[idx], `Recuerdo ${idx+1}`);
+    idx++;
+  }, 350);
+}
+
+/* crea popup de imagen (no se elimina por sí mismo) */
+function createImagePopup(src, title){
+  const p = document.createElement('div');
+  p.className = 'popup';
+  p.style.zIndex = ++popupZ;
+  // tamaño y rotación ligera
+  p.style.width = (200 + Math.random()*60) + 'px';
+  p.style.transform = `rotate(${(-8 + Math.random()*16).toFixed(1)}deg)`;
+
+  // posición aleatoria (ajustada para evitar salirse)
+  const maxLeft = Math.max(10, window.innerWidth - parseFloat(p.style.width) - 40);
+  p.style.left = Math.floor(Math.random() * maxLeft) + 'px';
+  p.style.top = Math.floor(Math.random() * (window.innerHeight - 180)) + 'px';
+
+  const titlebar = document.createElement('div');
+  titlebar.className = 'titlebar';
+  titlebar.innerHTML = `<span>${title}</span><span class="closeBtn">x</span>`;
+  const body = document.createElement('div');
+  body.className = 'body';
+  const img = document.createElement('img');
+  img.src = src;
+  img.style.width = '100%';
+  img.style.height = 'auto';
+  body.appendChild(img);
+
+  p.appendChild(titlebar);
+  p.appendChild(body);
+  popupContainer.appendChild(p);
+
+  // close
+  titlebar.querySelector('.closeBtn').addEventListener('click', ()=> p.remove());
+  return p;
+}
+
+/* ==========================
+   POPUPS DE VIDEO (se muestran UNO A UNO)
+   createVideoPopup devuelve promesa que se resuelve cuando termina el tiempo o video
+   ========================== */
+function createVideoPopup(videoSrc, title, forcedMs){
+  return new Promise((resolve)=> {
+    const p = document.createElement('div');
+    p.className = 'popup';
+    p.style.zIndex = ++popupZ;
+    p.style.width = Math.min(880, window.innerWidth - 60) + 'px';
+    // centrar en pantalla
+    p.style.left = Math.max(20, (window.innerWidth - parseFloat(p.style.width))/2) + 'px';
+    p.style.top = Math.max(30, (window.innerHeight - 520)/6) + 'px';
+
+    const titlebar = document.createElement('div');
+    titlebar.className = 'titlebar';
+    titlebar.innerHTML = `<span>${title}</span><span class="closeBtn">x</span>`;
+
+    const body = document.createElement('div');
+    body.className = 'body';
+    body.style.padding = '6px';
+
+    const vid = document.createElement('video');
+    vid.src = videoSrc;
+    vid.controls = true;
+    vid.style.display = 'block';
+    vid.style.width = '100%';
+    vid.style.maxHeight = '64vh';
+    vid.preload = 'auto';
+
+    body.appendChild(vid);
+    p.appendChild(titlebar);
+    p.appendChild(body);
+    popupContainer.appendChild(p);
+
+    // close button -> stop y resolve
+    titlebar.querySelector('.closeBtn').addEventListener('click', ()=> {
+      try{ vid.pause(); }catch(e){}
+      p.remove();
+      resolve();
+    });
+
+    // intentar play (si navegador bloquea, usuaria puede dar play manual)
+    vid.play().catch(()=>{/* autoplay bloqueado, puede dar play manual */});
+
+    let ended = false;
+    const onEnded = ()=> { if(!ended){ ended=true; setTimeout(()=>{ p.remove(); resolve(); }, 600); } };
+    vid.addEventListener('ended', onEnded);
+
+    // si forcedMs está definido, adelanta después de ese tiempo (fallback)
+    if(typeof forcedMs === 'number' && forcedMs > 0){
+      setTimeout(()=> {
+        if(!ended){ ended=true; try{ vid.pause(); }catch(e){}; p.remove(); resolve(); }
+      }, forcedMs + 800);
+    }
+    // seguridad: timeout max (5 min)
+    setTimeout(()=> {
+      if(!ended){ ended=true; try{ vid.pause(); }catch(e){}; p.remove(); resolve(); }
+    }, 5*60*1000);
+  });
+}
+
+/* ==========================
+   SECUENCIA PRINCIPAL
+   ========================== */
+async function startExperience(){
+  startBackground();
+
+  // mostrar las fotos en modo apilado (one-after-another but staying)
+  showAllPhotosStacked();
+
+  // darle un intervalo antes de comenzar videos para que las fotos se aprecien
+  await wait(3500);
+
+  // ahora reproducir videos UNO POR UNO: primero 3 forzados a 2min, luego 3 con sus duraciones solicitadas
+  for(let i=0;i<videos.length;i++){
+    const v = videos[i];
+    const title = (i < 3) ? `Video ${i+1} (2 min)` : `Video ${i+1} (mensaje)`;
+    // createVideoPopup se encargará de esperar el tiempo/fin del video
+    await createVideoPopup(v.src, title, v.forcedDuration);
+    // pequeña pausa entre videos para que no se amontonen popups
+    await wait(600);
+  }
+
+  // Mostrar la última foto grande (ya la última imagen está en la pila, pero destacamos ahora)
+  // buscaremos la imagen final por el id que compartiste (1Dew...)
+  const last = imagenes.find(u => u.includes('1DewDxgO0OuVxiJ8ze1qZ-mDjU6hZ2DjQ'));
+  if(last){
+    const highlight = document.createElement('div');
+    highlight.className = 'popup';
+    highlight.style.zIndex = ++popupZ;
+    highlight.style.width = Math.min(920, window.innerWidth - 80) + 'px';
+    highlight.style.left = Math.max(20, (window.innerWidth - parseFloat(highlight.style.width))/2) + 'px';
+    highlight.style.top = Math.max(40, (window.innerHeight - 520)/6) + 'px';
+    const titlebar = document.createElement('div'); titlebar.className='titlebar';
+    titlebar.innerHTML = `<span>Último recuerdo</span><span class="closeBtn">x</span>`;
+    const body = document.createElement('div'); body.className='body';
+    const img = document.createElement('img'); img.src = last; img.style.width='100%';
+    body.appendChild(img);
+    highlight.appendChild(titlebar); highlight.appendChild(body);
+    popupContainer.appendChild(highlight);
+    titlebar.querySelector('.closeBtn').addEventListener('click', ()=> highlight.remove());
+    // dejarla unos segundos para que se sienta el cierre
+    await wait(15000);
+  }
+
+  // mostrar overlay final
+  document.getElementById('final-overlay').style.display = 'flex';
+}
+
+/* tiny helper */
+function wait(ms){ return new Promise(res => setTimeout(res, ms)); }
+
+/* Iniciar cuando cargue la página (virus ya maneja su tiempo de 12s) */
+window.addEventListener('load', ()=> {
+  // nothing: virus logic espera 12s o click para acelerar
+});
+
+</script>
+</body>
+</html>
